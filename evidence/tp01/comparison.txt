@@ -1,0 +1,3 @@
+Comparaison before / after (ancien venv.bak vs .venv recree)
+Rapports : identiques
+Environnements : identiques

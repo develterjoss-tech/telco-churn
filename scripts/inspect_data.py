@@ -25,22 +25,22 @@ report = {
     "datatypes": {c : str(t) for c,t in df.dtypes.items()},
 
     #Target Count and Proportion
-    "targer_counts": df["Churn"].value_counts(dropna=False).to_dict(),
-    "targert_proportion": df["Churn"].value_counts(dropna=False,normalize=True).to_dict(),
+    "target_counts": df["Churn"].value_counts(dropna=False).to_dict(),
+    "target_proportions": df["Churn"].value_counts(dropna=False,normalize=True).to_dict(),
 
     #Duplicate customer-ID count
     "duplicates_customerID" : int(df["customerID"].duplicated().sum()),
 
     #Missing-value counts, with an explicit check for empty or whitespace-only values.
-    "Missing NaN" : {c: int(t) for c,t in df.isna().sum().items()},
-    "Missing empty": {c: int((raw[c]== "").sum()) for c in raw.columns},
-    "Missing_whitespace_only": {c: int((raw[c].str.strip().eq("") & raw[c].ne("")).sum()) for c in raw.columns},
+    "missing_nan" : {c: int(t) for c,t in df.isna().sum().items()},
+    "missing_empty": {c: int((raw[c]== "").sum()) for c in raw.columns},
+    "missing_whitespace_only": {c: int((raw[c].str.strip().eq("") & raw[c].ne("")).sum()) for c in raw.columns},
 
     #Source identity/hash and the environment information needed to interpret the run.
     "source" : str(source),
-    "source hash" : str(source_hash),
-    "python version " : sys.version,
-    "pandas version" : version("pandas")
+    "source_sha256" : str(source_hash),
+    "python_version" : sys.version,
+    "pandas_version" : version("pandas")
 
 
 }
