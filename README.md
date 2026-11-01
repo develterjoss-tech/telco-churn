@@ -86,3 +86,15 @@ Limit: the lockfile pins package versions, not hardware, operating system or fut
 - Always predicting "No" gives about 73.5% accuracy but finds no churner (recall 0), so accuracy alone is not a meaningful baseline in TP02: it must be compared on churn-specific metrics.
 
 
+**Git**
+- A commit identifies a complete snapshot of the repository at one moment (content, author, date, message, parent), referenced by a hash.
+- Uncommitted edits are not recorded: nobody else can retrieve or reproduce them, and the last commit no longer matches what is on my disk.
+- A helpful PR description says what changes and why, how it was verified, what was not verified, and what the reviewer should look at.
+
+**What can another engineer reproduce now, and what is missing for a trained model?**
+- They can recreate the environment from `uv.lock`, identify the input data by its SHA-256 and regenerate the same inspection report.
+- To reproduce a trained model we would also need the training configuration, the train/test split and random seeds, the preprocessing pipeline, the metrics, and the saved model with its metadata.
+
+## Handover
+
+The peer handover test was not carried out. Remaining limit: these instructions have not been tested by someone else from a clean clone.
