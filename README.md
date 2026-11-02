@@ -98,3 +98,88 @@ Limit: the lockfile pins package versions, not hardware, operating system or fut
 ## Handover
 
 The peer handover test was not carried out. Remaining limit: these instructions have not been tested by someone else from a clean clone.
+
+## TP02 - Training pipeline
+
+Goal: train a churn model, compare a few candidates, and save a pipeline that can predict on new customers without retraining.
+
+### How to run
+
+All commands are run from the project root.
+
+    uv sync --locked
+    uv run python -m telco_churn.training      # train, compare, save the best pipeline
+    uv run python -m telco_churn.check_reload  # reload the saved pipeline in a new process and compare scores
+    uv run python -m telco_churn.checks        # reliability checks
+
+Training writes:
+
+- `reports/train.json`: comparison table (4 models, parameters, fit time, metrics)
+- `models/pipeline.joblib`: the selected fitted pipeline (preprocessing + classifier)
+- `models/pipeline_metadata.json`: source hash, seed, customer IDs of each split, features, preprocessing, threshold, metrics, library versions
+- `models/reload_reference.json`: scores of 20 validation customers, used by the reload check
+
+The `.joblib` file is small, so it is committed. It can be rebuilt with the training command. Only load it if you trust it, and use the same scikit-learn version as in the metadata.
+
+### Code layout
+
+| File | Role |
+|---|---|
+| `telco_churn/dataset.py` | read the CSV, convert `TotalCharges`, split train/validation/test |
+| `telco_churn/pipeline.py` | build an unfitted pipeline for any classifier |
+| `telco_churn/evaluation.py` | compute the metrics |
+| `telco_churn/training.py` | train and compare the models, select one, save it |
+| `telco_churn/prediction.py` | load the saved pipeline and predict |
+| `telco_churn/check_reload.py`, `checks.py` | proofs that reload and the pipeline behave correctly |
+
+### Task and split
+
+Positive class: `Churn = Yes` (encoded 1). `customerID` and `Churn` are never used as inputs.
+
+The split is stratified 60/20/20 with seed 42: 4225 train, 1409 validation, 1409 test. No customer ID appears in two sets. The test set is not used anywhere in this work.
+
+First model (only `tenure` and `MonthlyCharges`, logistic regression), on validation: accuracy 0.783, confusion matrix [[950, 85], [221, 153]] (rows = true No/Yes, columns = predicted No/Yes). The majority-class baseline gets 0.735 and finds no churner: [[1035, 0], [374, 0]].
+
+### Preprocessing
+
+Inputs: `tenure`, `MonthlyCharges`, `TotalCharges` (numeric) and `Contract`, `InternetService`, `PaymentMethod` (categorical).
+
+- `TotalCharges` is read as text because 11 values are a single space. Before the pipeline, whitespace-only values become missing. Any other text that is not a number raises an error. This is done in `load_data`, so training and prediction use the same rule.
+- Numeric: missing values filled with the median, then standardised.
+- Categorical: missing values filled with the most frequent value, then one-hot encoded. An unknown category at prediction time is ignored (all zeros).
+- Everything is learned on the training set only, inside the pipeline.
+
+### Model comparison and selection
+
+Same six features and same split for every model. Metrics on validation, threshold 0.5.
+
+| Model | Average precision | Precision | Recall | F1 | Accuracy |
+|---|---|---|---|---|---|
+| Majority baseline | 0.265 | 0.000 | 0.000 | 0.000 | 0.735 |
+| Logistic regression | 0.647 | 0.664 | 0.529 | 0.589 | 0.804 |
+| Random forest (100 trees, depth 8) | 0.670 | 0.644 | 0.508 | 0.568 | 0.795 |
+| Decision tree (depth 5) | 0.603 | 0.630 | 0.602 | 0.616 | 0.801 |
+
+Selection rule: highest average precision on the validation set, baseline excluded. I use average precision because it compares how well each model ranks customers by risk and does not depend on the 0.5 threshold. I looked at the table before writing this, so the choice was not fixed in advance.
+
+Selected: random forest. Its lead over logistic regression is small (0.023). With 374 churners in validation this may be noise, and the simpler logistic regression would also be a reasonable choice.
+
+The first model uses only two features, so it cannot be compared with these models to say one algorithm is better.
+
+### Checks
+
+Output saved in `evidence/tp02/`.
+
+- Reload: scores of 20 customers from the saved pipeline match the original ones (max difference 0.0, tolerance 1e-9). See `reload_check.txt`.
+- Customer IDs are disjoint across the three sets.
+- The imputer statistics equal the medians of the training set, and calling `predict` does not change them.
+- A missing `TotalCharges` is filled with the training median.
+- An unknown category is accepted without an error, but the model does not see it, so the prediction is less reliable. One prediction changed in my test.
+- A missing required column raises an error that names the column.
+
+### Limits
+
+- The default threshold of 0.5 gives a recall of about 0.5: half of the churners are missed. The threshold can be lowered, but I did not do it here.
+- Differences between the three models are small and come from a single validation split.
+- `predict_test` returns classes at the model's default threshold, which is 0.5 for a random forest.
+- No peer review or handover test was done, for TP01 or TP02. The instructions have only been tested by me.
