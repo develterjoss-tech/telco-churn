@@ -1,0 +1,6 @@
+1. IDs disjoints : OK
+2. Statistiques = médianes du train : OK
+3. predict ne modifie pas l'imputer : OK
+4a. TotalCharges manquant : [0 0 0 1 0]
+4b. Contract inconnu      : [0 0 0 0 0]
+5. Erreur levée : Missing required column ['Contract']
